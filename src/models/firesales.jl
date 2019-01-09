@@ -17,7 +17,7 @@ struct FireSalesModel <: FinancialModel
                             Θ::AbstractMatrix, ϵ::AbstractVector,
                             B::AbstractVector, S_0::AbstractVector,
                             ADV::AbstractVector, σ::AbstractVector, c, τ,
-                            λ_max, λ_target = 0.95*λ_max)
+                            λ_max, λ_target=0.95*λ_max)
         @argcheck size(Π, 1) == size(Θ, 1) == size(C, 1)
         @argcheck size(B, 1) == size(S_0, 1) == size(ADV, 1) == size(σ, 1) == size(Π, 2)
         @argcheck size(ϵ, 1) == size(Θ, 2)
@@ -44,7 +44,7 @@ function delevprop(net::FireSalesModel)
     delev = zeros(size(net.C_k))
     for i in 1:size(net.Π_k, 1)
         if ((sum(net.Π_k[i,:])+net.I_ϵ[i])/net.C_k[i]) > net.λ_max
-            delev[i] = max((sum(net.Π_k[i,:]) + net.I_ϵ[i]- net.λ_target*net.C_k[i])
+            delev[i] = min((sum(net.Π_k[i,:]) + net.I_ϵ[i]- net.λ_target*net.C_k[i])
                             /sum(net.Π_k[i,:]), 1)
         end
     end
