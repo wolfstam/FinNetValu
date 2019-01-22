@@ -1,8 +1,12 @@
 ## Replicate two bank example from Shaanning 2017 thesis
 
 using FinNetValu
-using Gadfly
-using DataFrames
+using LaTeXStrings
+# using Gadfly
+# using DataFrames
+# import Cairo, Fontconfig
+using Plots
+pyplot()
 
 Π = hcat([90.; 70.])
 Θ = [10. 0.; 0. 20.]
@@ -19,6 +23,7 @@ c = 0.4
 
 #-------------------------------------------------------------------------------
 # replicate Figure 1.2.1
+#-------------------------------------------------------------------------------
 
 """
     runkrounds(fsmodel, k)
@@ -41,13 +46,9 @@ function runkrounds(fsmodel::FireSalesModel, k::Int)
         # current state updated after deleveraging round
         x = valuation(fsmodel, x, copy(y))
         L[j] = tmp-x[2]
-        print(x)
     end
     return Γ, L
 end
-
-# fsmodel = FireSalesModel(Π, C, Θ, [0.3, 0.], B, S, ADV, σ, c, τ, λ_max)
-# println(runkrounds(fsmodel, 5))
 
 """
     varyshockskrounds(; ϵ1_all=collect(0:0.005:0.45), k=5)
@@ -69,33 +70,52 @@ end
 
 # simulate k rounds of deleveraging and fire sales
 Γ, L, x = varyshockskrounds(k=5)
+
 row, col = size(Γ)
 
-# plot deleveraging proportions of Bank A over k rounds
-data = vcat([DataFrame(x = x*100, M = Γ[:,i], yc = "Γ_$(i)") for i in 1:col]...)
-fig121a = plot(data, x = :x, y = :M, color = :yc,
-                Geom.line,
-                Guide.xlabel("Initial shock ϵ (%)"),
-                Guide.ylabel("Γ"),
-                Guide.title("Bank A"));
+p1 = plot(x*100, Γ, xlabel=L"Initial shock $\epsilon$ (%)", ylabel=L"$\Gamma$",
+            title="Bank A", label=hcat(["Γ_$(i)" for i in 1:col]...));
+p2 = plot(x*100, L, xlabel=L"Initial shock $\epsilon$ (%)", ylabel="Loss",
+            title="Bank B", label=hcat(["L_$(i)" for i in 1:col]...));
+p = plot(p1,p2, layout=(2,1))
 
-# plot indirect contagion loss suffered by Bank B over k rounds
-data = vcat([DataFrame(x = x*100, M = L[:,i], yc = "L_$(i)") for i in 1:col]...)
-fig121b = plot(data, x = :x, y = :M, color = :yc,
-                Geom.line,
-                Guide.xlabel("Initial shock ϵ (%)"),
-                Guide.ylabel("Loss"),# in monetary units"),
-                Guide.title("Bank B"));
+savefig(p, "demos/plots/Shaanning_Fig_121.png")
 
-fig121 = vstack(fig121a, fig121b);
-draw(SVG("demos/plots/Shaanning_Fig_121.svg", 10cm, 15cm), fig121)
+# # plotting with Gadfly
+# # plot deleveraging proportions of Bank A over k rounds
+# data = vcat([DataFrame(x = x*100, M = Γ[:,i], yc = "Γ_$(i)") for i in 1:col]...)
+# fig121a = plot(data, x = :x, y = :M, color = :yc,
+#                 Geom.line,
+#                 Guide.xlabel("Initial shock ϵ (%)"),
+#                 Guide.ylabel("Γ"),
+#                 Guide.title("Bank A"))
+#
+# # plot indirect contagion loss suffered by Bank B over k rounds
+# data = vcat([DataFrame(x = x*100, M = L[:,i], yc = "L_$(i)") for i in 1:col]...)
+# fig121b = plot(data, x = :x, y = :M, color = :yc,
+#                 Geom.line,
+#                 Guide.xlabel("Initial shock ϵ (%)"),
+#                 Guide.ylabel("Loss"),# in monetary units"),
+#                 Guide.title("Bank B"))
+#
+# fig121 = vstack(fig121a, fig121b);
+# draw(SVG("demos/plots/Shaanning_Fig_121.svg", 10cm, 15cm), fig121)
 
 #-------------------------------------------------------------------------------
 # replicate Figure 1.2.4
+#-------------------------------------------------------------------------------
 
+"""
+    visualizeinsolvencyilliquidity(;ϵ1_all=collect(0:0.01:0.45),
+                                        sf=collect(0.3:0.01:1.))
+Sweeps over all combinations of ϵ1_all and sf, the market depth scaling factor,
+and runs the cascade of fire sales until a fixed point is reached. A heatmap is
+created indicating whether a bank is insolvent (=2), illiquid (=1) or all right
+(=0).
+"""
 function visualizeinsolvencyilliquidity(;ϵ1_all=collect(0:0.01:0.45),
                                         sf=collect(0.3:0.01:1.))
-    map = zeros(size(sf, 1), size(ϵ1_all, 1), 2)
+    map = zeros(Int64, size(sf, 1), size(ϵ1_all, 1), 2)
     for i in 1:size(sf, 1)
         for j in 1:size(ϵ1_all, 1)
             fsmodel = FireSalesModel(Π, C, Θ, [ϵ1_all[j], 0.], B, S, ADV, σ,
@@ -104,30 +124,50 @@ function visualizeinsolvencyilliquidity(;ϵ1_all=collect(0:0.01:0.45),
             fp = fixvalue(fsmodel, [0., 0.])
 
             # compute whether banks illiquid or solvent after cascade
-            solv = solvent(fsmodel, fp)
-            illiq = illiquid(fsmodel)
             # give specific code for illiquid and insolvent
-            map[i, j, illiq] .= 1
-            map[i, j, .!solv] .= 2
+            map[i, j, illiquid(fsmodel)] .= 1
+            map[i, j, .!solvent(fsmodel, fp)] .= 2
         end
     end
-    return map
+    return map, ϵ1_all, sf
 end
 
-heatmap = visualizeinsolvencyilliquidity()
+insolmap, xs, ys = visualizeinsolvencyilliquidity()
 
-# WARNING!! couldn't manage to change yticks to lie between 0.3 and 1.
-# Also: color coding is: 2 = insolvent, 1 = illiquid, 0 = all righty
-fig124a = spy(heatmap[:,:,1],
-                Guide.colorkey(labels=["liquid", "illiquid", "insolvent"]),
-                Guide.xlabel("Initial shock ϵ (%)"),
-                Guide.ylabel("Market Depth Scaling Factor"),# in monetary units"),
-                Guide.title("Bank A"));
-fig124b = spy(heatmap[:,:,2],
-                Guide.colorkey(labels=["liquid", "illiquid", "insolvent"]),
-                Guide.xlabel("Initial shock ϵ (%)"),
-                Guide.ylabel("Market Depth Scaling Factor"),# in monetary units"),
-                Guide.title("Bank B"));
+# green = all right, white = illiquid, red = insolvent
+p1 = heatmap(xs, ys, insolmap[:,:,1], yflip=true,
+            c=cgrad([:green,:white,:red]),
+            colorbar = :right,
+            grid=false,
+            border=nothing,
+            xlabel=L"Initial shock $\epsilon$ (%)",
+            ylabel="Market depth scaling factor",
+            title="Bank A");
+p2 = heatmap(xs, ys, insolmap[:,:,2], yflip=true,
+            c=cgrad([:green,:white,:red]),
+            colorbar = :right,
+            grid=false,
+            border=nothing,
+            xlabel=L"Initial shock $\epsilon$ (%)",
+            ylabel="Market depth scaling factor",
+            title="Bank B");
+p = plot(p1,p2, layout=(2,1), size=(600, 600), dpi=100)
 
-fig124 = vstack(fig124a, fig124b);
-draw(SVG("demos/plots/Shaanning_Fig_124.svg", 10cm, 15cm), fig124)
+savefig(p, "demos/plots/Shaanning_Fig_124.png")
+
+# # plotting with Gadfly
+# # WARNING!! couldn't manage to change yticks to lie between 0.3 and 1.
+# # Also: color coding is: 2 = insolvent, 1 = illiquid, 0 = all righty
+# fig124a = spy(insolmap[:,:,1],
+#                 Guide.colorkey(labels=["liquid", "illiquid", "insolvent"]),
+#                 Guide.xlabel("Initial shock ϵ (%)"),
+#                 Guide.ylabel("Market Depth Scaling Factor"),# in monetary units"),
+#                 Guide.title("Bank A"))
+# fig124b = spy(insolmap[:,:,2],
+#                 Guide.colorkey(labels=["liquid", "illiquid", "insolvent"]),
+#                 Guide.xlabel("Initial shock ϵ (%)"),
+#                 Guide.ylabel("Market Depth Scaling Factor"),# in monetary units"),
+#                 Guide.title("Bank B"))
+#
+# fig124 = vstack(fig124a, fig124b);
+# draw(SVG("demos/plots/Shaanning_Fig_124.svg", 10cm, 15cm), fig124)
