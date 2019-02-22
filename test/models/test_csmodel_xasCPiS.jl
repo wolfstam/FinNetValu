@@ -123,19 +123,22 @@ end
 
 @testset "init" begin
     @test FinNetValu.init(csmodel6, a6) != false
-    @test FinNetValu.init(csmodel6, a6) == [csmodel6.C_ϵ, csmodel6.Π_k, csmodel6.S_k]
+    @test FinNetValu.init(csmodel6, a6) == vcat(vec(hcat(csmodel6.C_ϵ, csmodel6.Π_k)), csmodel6.S_k)
 end
 
 @testset "Piview" begin
-    @test FinNetValu.Πview(x6) == csmodel6.Π_k
+    @test FinNetValu.Πview(csmodel, x) == csmodel.Π_k
+    @test FinNetValu.Πview(csmodel6, x6) == csmodel6.Π_k
 end
 
 @testset "Cview" begin
-    @test FinNetValu.Cview(x6) == csmodel6.C_ϵ
+    @test FinNetValu.Cview(csmodel, x) == csmodel.C_ϵ
+    @test FinNetValu.Cview(csmodel6, x6) == csmodel6.C_ϵ
 end
 
 @testset "Sview" begin
-    @test FinNetValu.Sview(x6) == csmodel6.S_k
+    @test FinNetValu.Sview(csmodel, x) == csmodel.S_k
+    @test FinNetValu.Sview(csmodel6, x6) == csmodel6.S_k
 end
 
 @testset "leverageratio" begin
@@ -167,7 +170,7 @@ end
     @test round.(FinNetValu.marketdepth([50.], [0.02], 0.4, 20.), digits=2) == [4472.14]
 end
 
-@testset "numsecurities" begin
+@testset "numsecassets" begin
     @test FinNetValu.numsecassets(csmodel) == 3
 end
 
@@ -216,18 +219,25 @@ end
     @test FinNetValu.valuation(deepcopy(csmodel6), x6, a6) != false
 
     @test size(FinNetValu.valuation(deepcopy(csmodel6), x6, a6)) == size(x6)
-    @test size(FinNetValu.valuation(deepcopy(csmodel), x, a)[2]) == size(x[2])
+    @test size(FinNetValu.valuation(deepcopy(csmodel), x, a)) == size(x)
 
-    @test FinNetValu.valuation(deepcopy(csmodel6), x6, a6)[1] != x6[1]
-    @test FinNetValu.valuation(deepcopy(csmodel4), x4, a4)[1] == x4[1]
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8), x8, a8)[1], digits=2) == [1.44, 3.96]
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)[1], digits=2) == [1.26, 3.7]
+    @test FinNetValu.valuation(deepcopy(csmodel6), x6, a6) != x6
+    @test FinNetValu.valuation(deepcopy(csmodel4), x4, a4) == x4
 
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8), x8, a8)[2], digits=2) == hcat([54.84; 69.46])
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)[2], digits=2) == hcat([37.42; 69.20])
+    @test round.(FinNetValu.Cview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8), x8, a8)),
+                digits=2) == [1.44, 3.96]
+    @test round.(FinNetValu.Cview(csmodel8_3, FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)),
+                digits=2) == [1.26, 3.7]
 
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8), x8, a8)[3], digits=2) == [0.99]
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)[3], digits=3) == [0.989]
+    @test round.(FinNetValu.Πview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8), x8, a8)),
+                digits=2) == hcat([54.84; 69.46])
+    @test round.(FinNetValu.Πview(csmodel8_3, FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)),
+                digits=2) == hcat([37.42; 69.20])
+
+    @test round.(FinNetValu.Sview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8), x8, a8)),
+                digits=2) == [0.99]
+    @test round.(FinNetValu.Sview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)),
+                digits=3) == [0.989]
 end
 
 @testset "valuation!" begin
@@ -239,8 +249,7 @@ end
     @test size(y[1]) == size(x[1])
 
     FinNetValu.valuation!(y8, deepcopy(csmodel8), x8, a8)
-    @test round.(y8[1], digits=2) == [1.44, 3.96]
-    @test round.(y8[2], digits=2) == hcat([54.84; 69.46])
-    @test round.(y8[3], digits=2) == [0.99]
-
+    @test round.(FinNetValu.Cview(csmodel8, y8), digits=2) == [1.44, 3.96]
+    @test round.(FinNetValu.Πview(csmodel8, y8), digits=2) == hcat([54.84; 69.46])
+    @test round.(FinNetValu.Sview(csmodel8, y8), digits=2) == [0.99]
 end

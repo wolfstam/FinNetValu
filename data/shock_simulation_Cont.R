@@ -120,8 +120,8 @@ leverage_target <- function (leverage_target) {
 leverage_default <- function (state, loss) {
     as.numeric(!(state$capital > 0))
 }
-
 #source("EBA_Cont.R")
+source("EBA_Cont_editWS.R")
 
 #--------------------------#
 # two bank example from Shaanning 2017 (thesis)
@@ -134,7 +134,7 @@ D = 0.4 * (50/0.02) * sqrt(20)
 B = 0.5
 S0 = 1
 alpha = 0.5
-lambda_max = 33
+lambda_max = 33.3
 lambda_b = 0.95 * lambda_max
 #--------------------------#
 
@@ -145,20 +145,32 @@ state_cont <- state(cap, Pi)
 
 params_default <- params(market_impact_cont(D, B, S0), leverage_cont(lambda_max, lambda_b), alpha)
 
-loss <- c(0.2, 0)
+#-----------------------------------------#
+# tests by WS 
 
+# seems to correspond to epsilon = [0.2, 0.] and Theta from two bank example
+sl <- shock_assets(state_cont, colnames(Pi), c(0.9778, 1.))
+Pi <- sl$state$Pi ## diag(state$bank_balance_sheet) %*% state$portfolios
 
+Gamma <- params_default$leverage_strategy(sl$state, sl$loss)
+## Compute new exposure values (13)
+Psi <- params_default$market_impact(c(Gamma %*% Pi), colSums(Pi))
+Pi_next <- diag(1 - Gamma) %*% Pi %*% (1 - Psi)
 
+## Compute losses
+## M <- (1 - Gamma) * rowSums(Pi - Pi_next)
+## R <- Gamma * rowSums(Pi - (params$alpha*Pi_next + (1-params$alpha)*Pi))
+M <- (1 - Gamma) * (Pi %*% Psi)
+R <- (1 - (1 - params_default$alpha) * Gamma) * (Pi %*% Psi)
+L <- c(M + R)
+pmax(sl$state$capital - L, 0)
 
-shocked_asset = colnames(Pi)
-                     loss = 
-                       lapply(shocked_asset, function (a) {
-                         sl <- shock_assets(state_cont, shocked_asset, 0.8)
-                         simulate(sl$state, sl$loss, params_default)
-                       })
-  
-                     
+sl_next <- sim_step(sl$state, sl$loss, params_default)
 
+# -> it seems theta is not used, nor is S updated, I don't know how to test the two bank example in this way 
+# without being able to specify theta and epsilon -> all computed values in between, e.g. Gamma, Psi, Pi_next, L
+# are weird numbers, which I cannot interpret
+#-----------------------------------------#
 
 shock_banks <- function (state, banks) {
     N <- nrow(state$Pi)
@@ -198,7 +210,7 @@ sim_df <- data_frame(shocked_bank = banks,
 sim_df <- data_frame(shocked_asset = colnames(Pi),
                      loss = 
                          lapply(shocked_asset, function (a) {
-                             sl <- shock_assets(state_cont, a, 0.05)
+                             sl <- shock_assets(state_cont, a, 0.95)
                              simulate(sl$state, sl$loss, params_default)
                          })) %>%
     unnest()

@@ -19,6 +19,14 @@ struct CSModel <: FinancialModel
     M
 
     """
+    Π_0 : [N x M]
+    C   : [N,]
+    Θ   : [N x K]
+    ϵ   : [K,]
+    B   : [M,]
+    S_0 : [M,]
+    ADV : [M,]
+    σ   : [M,]
     """
     function CSModel(Π_0::AbstractMatrix, C::AbstractVector,
                     Θ::AbstractMatrix, ϵ::AbstractVector,
@@ -58,35 +66,34 @@ function valuation!(y, net::CSModel, x, a)
 
     # compute C_{k+1}, Π_{k+1} and S_{k+1}, where C_{k+1} and S_{k+1} make use
     # of Π_{k}
-    y[1] .= compC(net, x, compLoss(net, x, Γ, Ψ))
-    y[2] .= compΠ(net, x, Γ, Ψ)
-    y[3] .= compPrices(net, x, Ψ)
-    return y[1]
+    Cview(net, y) .= compC(net, x, compLoss(net, x, Γ, Ψ))
+    Πview(net, y) .= compΠ(net, x, Γ, Ψ)
+    Sview(net, y) .= compPrices(net, x, Ψ)
 end
 
 function valuation(net::CSModel, x::AbstractVector, a)
     # compute the deleverage proportion
     Γ = delevprop(net, x)
     # compute market impact of previous sales, using S_{k}
-    Ψ = marketimpact(net, x, sum(Γ.*Πview(x), dims=1)[:])
+    Ψ = marketimpact(net, x, sum(Γ .* Πview(net, x), dims=1)[:])
 
     # compute C_{k+1}, Π_{k+1} and S_{k+1}, where C_{k+1} and S_{k+1} make use
     # of Π_{k}
-    return [compC(net, x, compLoss(net, x, Γ, Ψ)),
-            compΠ(net, x, Γ, Ψ),
-            compPrices(net, x, Ψ)]
+    return vcat(vec(hcat(compC(net, x, compLoss(net, x, Γ, Ψ)),
+            compΠ(net, x, Γ, Ψ))),
+            compPrices(net, x, Ψ))
 end
 
 function init(net::CSModel, a)
-    return [copy(net.C_ϵ), copy(net.Π_k), copy(net.S_k)]
+    return vcat(vec(hcat(copy(net.C_ϵ), copy(net.Π_k))), copy(net.S_k))
 end
 
 function solvent(net::CSModel, x::AbstractVector)
-    return Cview(x) .> zero(eltype(Cview(x)))
+    return Cview(net, x) .> zero(eltype(Cview(net, x)))
 end
 
 function illiquid(net::CSModel, x::AbstractVector)
-    return vcat(sum(Πview(x), dims=2)...) .== zero(eltype(Cview(x)))
+    return vcat(sum(Πview(net, x), dims=2)...) .== zero(eltype(Cview(net, x)))
 end
 
 ##########################
@@ -100,7 +107,8 @@ Computes the Pi_{k} matrix of the next round, i.e. Pi_{k+1}
 function compΠ(net::CSModel, x::AbstractVector, Γ, Ψ)
     # update Π_k incorporating new asset prices
     # (hcat(x...)' required to transform list of arrays to 2D array)
-    return hcat([(1. - Γ[i]) .* Πview(x)[i, :] .* (1. .- Ψ) for i in 1:numfirms(net)]...)'
+    return hcat([(1. - Γ[i]) .* Πview(net, x)[i, :] .* (1. .- Ψ)
+                for i in 1:numfirms(net)]...)'
 end
 
 # TODO: might be able to compute this (move this) into compC
@@ -110,7 +118,8 @@ end
 Computes the total Loss due to a fire sales round.
 """
 function compLoss(net::CSModel, x::AbstractVector, Γ, Ψ)
-    return [(1. - (1. - net.α)*Γ[i]) * sum(Πview(x)[i] .* Ψ) for i in 1:numfirms(net)]
+    return [(1. - (1. - net.α)*Γ[i]) * sum(Πview(net, x)[i] .* Ψ)
+            for i in 1:numfirms(net)]
 end
 
 """
@@ -121,7 +130,7 @@ round of fire sales. I.e. returns C_{k+1}
 """
 function compC(net::CSModel, x::AbstractVector, L)
     # update current (equity) state, i.e. C_k
-    return [max(Cview(x)[i] - L[i], 0.) for i in 1:numfirms(net)]
+    return [max(Cview(net, x)[i] - L[i], 0.) for i in 1:numfirms(net)]
 end
 
 """
@@ -130,7 +139,7 @@ end
 Computes the market prices due to asset sales.
 """
 function compPrices(net::CSModel, x::AbstractVector, Ψ)
-    return [Sview(x)[μ] * (1. - Ψ[μ]) for μ in 1:numsecassets(net)]
+    return [Sview(net, x)[μ] * (1. - Ψ[μ]) for μ in 1:numsecassets(net)]
 end
 
 """
@@ -139,7 +148,7 @@ end
 Computes the leverage ratio of every bank.
 """
 function leverageratio(net::CSModel, x)
-    return [(sum(Πview(x)[i,:])+net.I_ϵ[i])/Cview(x)[i] for i in 1:numfirms(net)]
+    return [(sum(Πview(net, x)[i,:])+net.I_ϵ[i])/Cview(net, x)[i] for i in 1:numfirms(net)]
 end
 
 """
@@ -148,7 +157,7 @@ end
 Computes the deleverage proportion for each bank.
 """
 function delevprop(net::CSModel, x)
-    delev = zeros(size(Cview(x)))
+    delev = zeros(size(Cview(net, x)))
     λ = leverageratio(net, x)
     for i in 1:numfirms(net)
         # only if the leverage is higher than the system wide max leverage,
@@ -156,9 +165,11 @@ function delevprop(net::CSModel, x)
         # (and the institute is not insolvent, -> commented out for now)
         # does it sell a proportion of its' security assets
         if ((λ[i] > net.λ_max)
-            && (sum(Πview(x)[i,:]) > 0.)) #&& (Cview(x)[i] > 0.)
-            delev[i] = min((sum(Πview(x)[i,:]) + net.I_ϵ[i]- net.λ_target*Cview(x)[i])
-                            /sum(Πview(x)[i,:]), 1)
+            && (sum(Πview(net, x)[i,:]) > 0.)) #&& (Cview(x)[i] > 0.)
+            delev[i] = min((sum(Πview(net, x)[i,:])
+                            + net.I_ϵ[i] - net.λ_target * Cview(net, x)[i])
+                            /sum(Πview(net, x)[i,:]),
+                            1)
         end
     end
     return delev
@@ -170,7 +181,8 @@ end
 Computes the market impact for each asset class due to asset sales.
 """
 function marketimpact(net::CSModel, x::AbstractVector, q::AbstractVector)
-    return [(1-net.B[i]/Sview(x)[i])*(1-exp(-q[i]/net.δ[i])) for i in 1:(size(q, 1))]
+    return [(1-net.B[i]/Sview(net, x)[i])*(1-exp(-q[i]/net.δ[i]))
+            for i in 1:(size(q, 1))]
 end
 
 """
@@ -183,30 +195,34 @@ function marketdepth(ADV::AbstractVector, σ::AbstractVector, c, τ)
 end
 
 """
-    Πview(x)
+    Πview(net, x)
 
 View the security assets matrix in the state variable x.
 """
-function Πview(x::AbstractVector)
-    return x[2]
+function Πview(net::CSModel, x::AbstractVector)
+    N = numfirms(net)
+    M = numsecassets(net)
+    return reshape(view(x, N+1:(M*N+N)), N, M)
 end
 
 """
-    Cview(x)
+    Cview(net, x)
 
 View the equity vector in the state variable x.
 """
-function Cview(x::AbstractVector)
-    return x[1]
+function Cview(net::CSModel, x::AbstractVector)
+    return view(x, 1:numfirms(net))
 end
 
 """
-    Sview(x)
+    Sview(net, x)
 
 View the prices matrix of each asset in the state variable x.
 """
-function Sview(x::AbstractVector)
-    return x[3]
+function Sview(net::CSModel, x::AbstractVector)
+    N = numfirms(net)
+    M = numsecassets(net)
+    return view(x, (N+N*M)+1:(N+M*N+M))
 end
 
 numsecassets(net::CSModel) = net.M
