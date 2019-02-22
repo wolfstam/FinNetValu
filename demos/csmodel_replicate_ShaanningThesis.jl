@@ -1,8 +1,6 @@
 ## Replicate two bank example from Shaanning 2017 thesis
-# TODO: I don't understand why these figures look different than those within
-# the thesis. I ran (manual) calculations in
-# "demos/csmodel_sanity_check_twobankexample.jl", and received the same results
-# as here.
+# IMPORTANT: Cont & Shaanning let insolvent banks sell their remaining liquid
+# assets. To replicate these figures this must be considered in csmodel.jl
 
 using FinNetValu
 using LaTeXStrings
@@ -12,7 +10,7 @@ pyplot()
 Π = hcat([90.; 70.])
 Θ = [10. 0.; 0. 20.]
 C = [4., 4.5]
-λ_max = 33.3 # not specified exactly for two bank example
+λ_max = 33 # not specified exactly for two bank example
 λ_target = 0.95*λ_max # not specified exactly for two bank example
 ϵ = [0.2, 0.0]
 S = [1.] # not specified in thesis
@@ -21,7 +19,7 @@ ADV = [50.]
 σ = [0.02]
 c = 0.4
 τ = 20.
-α = 0.5 # not specified exactly for two bank example
+α = 1. # not specified exactly for two bank example
 
 #------------------------------------------------------------------------------#
 # helper functions
@@ -36,17 +34,17 @@ rounds.
 function runkrounds_121(csmodel::CSModel, k::Int)
     Γ = ones(k)
     L = ones(k)
-    # intial y
-    y = ones(size(C))
+    # intial a
+    a = ones(size(C))
     # initial current state
     x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
 
     for j in 1:k
         # deleveraging proportion before sales
         Γ[j] = delevprop(csmodel, x)[1]
-        tmp = copy(x[2])
+        tmp = deepcopy(x[2])
         # current state updated after deleveraging round
-        x = valuation(csmodel, x, copy(y))
+        x = valuation(csmodel, x, a)
         L[j] = tmp-x[2]
     end
     return Γ, L
@@ -60,8 +58,8 @@ deleveraging proportions of both banks over k rounds.
 function runkrounds_122(csmodel::CSModel, k::Int)
     Γ_A = ones(k)
     Γ_B = ones(k)
-    # intial y
-    y = ones(size(C))
+    # intial a
+    a = ones(size(C))
     # initial current state
     x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
 
@@ -71,33 +69,9 @@ function runkrounds_122(csmodel::CSModel, k::Int)
         Γ_A[j] = tmp[1]
         Γ_B[j] = tmp[2]
         # current state updated after deleveraging round
-        x = valuation(csmodel, x, copy(y))
+        x = valuation(csmodel, x, a)
     end
     return Γ_A, Γ_B
-end
-
-"""
-    runkrounds_125(csmodel, k)
-Simulates k rounds of deleveraging given the initial CSModel. Returns the
-losses of 1st bank and the losses of second bank over k
-rounds.
-"""
-function runkrounds_125(csmodel::CSModel, k::Int)
-    L_A = ones(k)
-    L_B = ones(k)
-    # intial y
-    y = ones(size(C))
-    # initial current state
-    x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
-
-    for j in 1:k
-        tmp = copy(x)
-        # current state updated after deleveraging round
-        x = valuation(csmodel, x, copy(y))
-        L_A[j] = tmp[1]-x[1]
-        L_B[j] = tmp[2]-x[2]
-    end
-    return L_A, L_B
 end
 
 """
@@ -112,7 +86,7 @@ function varyshockskrounds(;ϵ1_all=collect(0:0.0001:0.45), k=5, figure=121)
 
         for i in 1:size(ϵ1_all, 1)
             csmodel = CSModel(Π, C, Θ, [ϵ1_all[i], 0.], B, S, ADV, σ, c, τ,
-                                    λ_max, λ_target=λ_target)
+                                    λ_max, λ_target=λ_target, α=α)
 
             Γ[i, :], L[i, :] = runkrounds_121(csmodel, k)
         end
@@ -123,22 +97,11 @@ function varyshockskrounds(;ϵ1_all=collect(0:0.0001:0.45), k=5, figure=121)
 
         for i in 1:size(ϵ1_all, 1)
             csmodel = CSModel(Π, C, Θ, [ϵ1_all[i], 0.], B, S, ADV, σ, 0.3*c, τ,
-                                    λ_max, λ_target=λ_target)
+                                    λ_max, λ_target=λ_target, α=α)
 
             Γ_A[i, :], Γ_B[i, :] = runkrounds_122(csmodel, k)
         end
         return Γ_A, Γ_B, ϵ1_all
-    elseif figure == 125
-        L_A = ones(size(ϵ1_all, 1), k)
-        L_B = ones(size(ϵ1_all, 1), k)
-
-        for i in 1:size(ϵ1_all, 1)
-            csmodel = CSModel(Π, C, Θ, [ϵ1_all[i], 0.], B, S, ADV, σ, c, τ,
-                                    λ_max, λ_target=λ_target)
-
-            L_A[i, :], L_B[i, :] = runkrounds_125(csmodel, k)
-        end
-        return L_A, L_B, ϵ1_all
     end
 end
 
@@ -228,26 +191,3 @@ p2 = heatmap(xs*100, ys, insolmap[:,:,2], yflip=true,
 p = plot(p1,p2, layout=(2,1), size=(400, 600), dpi=100)
 
 savefig(p, "demos/plots/Shaanning_Fig_124.png")
-
-#-------------------------------------------------------------------------------
-# replicate Figure 1.2.5
-#-------------------------------------------------------------------------------
-
-α = 1.
-c *= 0.3
-
-# simulate k rounds of deleveraging and fire sales
-L_A, L_B, x = varyshockskrounds(k=4, figure=125)
-
-row, col = size(L_A)
-
-p1 = plot(x*100, L_A, xlabel=L"Initial shock $\epsilon$ (%)", ylabel="Loss",
-            title="Bank A", label=hcat(["L_$(i)" for i in 1:col]...));
-p2 = plot(x*100, L_B, xlabel=L"Initial shock $\epsilon$ (%)", ylabel="Loss",
-            title="Bank B", label=hcat(["L_$(i)" for i in 1:col]...));
-p = plot(p1,p2, layout=(2,1), size=(400, 600))
-
-savefig(p, "demos/plots/Shaanning_Fig_125.png")
-
-print(x[1500])
-print(L_A[1500, :])

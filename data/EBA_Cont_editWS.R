@@ -1,4 +1,8 @@
 ### EBA data set
+# Info for the csv file: From the EBA stress test 2011 results website
+# "https://eba.europa.eu/risk-analysis-and-data/eu-wide-stress-testing/2011/results"
+# download the stress test tool for individual results, select all banks, and
+# save the DPCache file. 
 
 library(tidyverse)
 library(readxl)
