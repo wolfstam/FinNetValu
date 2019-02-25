@@ -73,6 +73,7 @@ y9 = deepcopy(x9)
 # run 1 round of valuation
 a8_3 = zeros(size(csmodel8_3.C_ϵ))
 x8_3 = FinNetValu.valuation(csmodel8_3, FinNetValu.init(csmodel8_3, a8_3), a8_3)
+y8_3 = deepcopy(x8_3)
 
 # run 1 more round of valuation
 csmodel8_4 = deepcopy(csmodel8_3)
@@ -120,9 +121,28 @@ x8_4 = FinNetValu.valuation(csmodel8_4, x8_3, a8_4)
     @test round(csmodel8.δ[1], digits=2) == 2236.07
 end
 
+@testset "init" begin
+    @test FinNetValu.init(csmodel6, a6) != false
+    @test FinNetValu.init(csmodel6, a6) == vcat(vec(hcat(csmodel6.C_ϵ, csmodel6.Π_k)), csmodel6.S_k)
+end
+
+@testset "Piview" begin
+    @test FinNetValu.Πview(csmodel, x) == csmodel.Π_k
+    @test FinNetValu.Πview(csmodel6, x6) == csmodel6.Π_k
+end
+
+@testset "Cview" begin
+    @test FinNetValu.Cview(csmodel, x) == csmodel.C_ϵ
+    @test FinNetValu.Cview(csmodel6, x6) == csmodel6.C_ϵ
+end
+
+@testset "Sview" begin
+    @test FinNetValu.Sview(csmodel, x) == csmodel.S_k
+    @test FinNetValu.Sview(csmodel6, x6) == csmodel6.S_k
+end
+
 @testset "leverageratio" begin
     @test FinNetValu.leverageratio(csmodel, x) != false
-    @test size(FinNetValu.leverageratio(csmodel, x)) == size(C)
     @test FinNetValu.leverageratio(csmodel8, x8) == [49, 20]
     @test round.(FinNetValu.leverageratio(csmodel8_3, x8_3), digits=2) == [43.63, 22.59]
 end
@@ -135,14 +155,13 @@ end
     @test round.(FinNetValu.delevprop(csmodel8, x8), digits=2) == [0.39, 0.]
     @test round.(FinNetValu.delevprop(csmodel8_3, x8_3), digits=2) == [0.32, 0.]
     @test round.(FinNetValu.delevprop(csmodel8_4, x8_4), digits=2) == [0.15, 0.]
-    # if insolvent banks should not sell assets if still liquid
     # @test FinNetValu.delevprop(csmodel9, x9)[1] == 0.
 end
 
 @testset "marketimpact" begin
-    @test FinNetValu.marketimpact(csmodel, q) != false
-    @test FinNetValu.marketimpact(csmodel, zeros(size(Π,2))) == zeros(size(Π,2))
-    @test round.(FinNetValu.marketimpact(csmodel8, [34.73]), digits=5) == [0.00771]
+    @test FinNetValu.marketimpact(csmodel, x, q) != false
+    @test FinNetValu.marketimpact(csmodel, x, zeros(size(Π,2))) == zeros(size(Π,2))
+    @test round.(FinNetValu.marketimpact(csmodel8, x8, [34.73]), digits=5) == [0.00771]
 end
 
 @testset "marketdepth" begin
@@ -151,8 +170,8 @@ end
     @test round.(FinNetValu.marketdepth([50.], [0.02], 0.4, 20.), digits=2) == [4472.14]
 end
 
-@testset "numsecurities" begin
-    @test FinNetValu.numsectypes(csmodel) == 3
+@testset "numsecassets" begin
+    @test FinNetValu.numsecassets(csmodel) == 3
 end
 
 @testset "numfirms" begin
@@ -167,35 +186,28 @@ end
 end
 
 @testset "illiquid" begin
-    @test FinNetValu.illiquid(csmodel6) != false
-    @test FinNetValu.illiquid(csmodel7) == [true, false]
+    @test FinNetValu.illiquid(csmodel6, x6) != false
+    @test FinNetValu.illiquid(csmodel7, x7) == [true, false]
 end
 
-@testset "init" begin
-    @test FinNetValu.init(csmodel6, a6) != false
-    @test FinNetValu.init(csmodel6, a6) == csmodel6.C_ϵ
-end
-
-@testset "compPrices" begin
-    @test FinNetValu.compPrices(deepcopy(csmodel6), [1.]) != false
-    @test FinNetValu.compPrices(deepcopy(csmodel4), [0.]) == csmodel4.S_k
-    @test round.(FinNetValu.compPrices(deepcopy(csmodel8), FinNetValu.marketimpact(csmodel8, [34.73])), digits=5) == [0.99229]
+@testset "compS" begin
+    @test FinNetValu.compS(deepcopy(csmodel6), x6, [1.]) != false
+    @test FinNetValu.compS(deepcopy(csmodel4), x4, [0.]) == csmodel4.S_k
+    @test round.(FinNetValu.compS(deepcopy(csmodel8), x8, FinNetValu.marketimpact(csmodel8, x8, [34.73])), digits=5) == [0.99229]
 end
 
 @testset "compΠ" begin
-    @test FinNetValu.compΠ(deepcopy(csmodel6), [0., 0.], [1.]) != false
-    @test FinNetValu.compΠ(deepcopy(csmodel), [0., 0.], [1.]) != false
-
-    @test FinNetValu.compΠ(deepcopy(csmodel6), [0., 0.], [0.]) == Π2
-    @test round.(FinNetValu.compΠ(csmodel8, [0.39, 0.], [0.00771]), digits=2) == hcat([54.48; 69.46])
-    @test round.(FinNetValu.compΠ(csmodel8_2, [0.3096, 0.], [0.0037]), digits=2) == hcat([37.47; 69.20])
+    @test FinNetValu.compΠ(deepcopy(csmodel6), x6, [0. 0.], [1.]) != false
+    @test FinNetValu.compΠ(deepcopy(csmodel6), x6, [0. 0.], [0.]) == Π2
+    @test round.(FinNetValu.compΠ(csmodel8, x8, [0.39 0.], [0.00771]), digits=2) == hcat([54.48; 69.46])
+    @test round.(FinNetValu.compΠ(csmodel8_2, x8_2, [0.3096 0.], [0.0037]), digits=2) == hcat([37.47; 69.20])
 end
 
 @testset "compLoss" begin
-    @test FinNetValu.compLoss(csmodel6, [0. 0.], [0.]) != false
-    @test FinNetValu.compLoss(csmodel4, [0. 0.], [0.]) == [0., 0.]
-    @test round.(FinNetValu.compLoss(csmodel8, [0.39 0.], [0.00771]), digits=4) == [0.5586, 0.5397]
-    @test round.(FinNetValu.compLoss(csmodel8_2, [0.3096 0.], [0.0037]), digits=2) == [0.17, 0.26]
+    @test FinNetValu.compLoss(csmodel6, x6, [0. 0.], [0.]) != false
+    @test FinNetValu.compLoss(csmodel4, x4, [0. 0.], [0.]) == [0., 0.]
+    @test round.(FinNetValu.compLoss(csmodel8, x8, [0.39 0.], [0.00771]), digits=4) == [0.5586, 0.5397]
+    @test round.(FinNetValu.compLoss(csmodel8_2, x8_2, [0.3096 0.], [0.0037]), digits=2) == [0.17, 0.26]
 end
 
 @testset "compC" begin
@@ -211,23 +223,38 @@ end
 
     @test FinNetValu.valuation(deepcopy(csmodel6), x6, a6) != x6
     @test FinNetValu.valuation(deepcopy(csmodel4), x4, a4) == x4
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8), x8, a8), digits=2) == [1.44, 3.96]
-    @test round.(FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3), digits=2) == [1.26, 3.7]
 
-    @test round.(csmodel8_4.Π_k, digits=2) == hcat([37.42; 69.2])
+    @test round.(FinNetValu.Cview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8), x8, a8)),
+                digits=2) == [1.44, 3.96]
+    @test round.(FinNetValu.Cview(csmodel8_3, FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)),
+                digits=2) == [1.26, 3.7]
 
-    @test round.(csmodel8_4.S_k, digits=3) == [0.989]
+    @test round.(FinNetValu.Πview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8), x8, a8)),
+                digits=2) == hcat([54.84; 69.46])
+    @test round.(FinNetValu.Πview(csmodel8_3, FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)),
+                digits=2) == hcat([37.42; 69.20])
+
+    @test round.(FinNetValu.Sview(csmodel8, FinNetValu.valuation(deepcopy(csmodel8), x8, a8)),
+                digits=2) == [0.99]
+    @test round.(FinNetValu.Sview(csmodel8_3, FinNetValu.valuation(deepcopy(csmodel8_3), x8_3, a8_3)),
+                digits=3) == [0.989]
 end
 
-# essentially the exact same computation as in valuation()
 @testset "valuation!" begin
     @test FinNetValu.valuation!(y6, deepcopy(csmodel6), x6, a6) != false
 
     FinNetValu.valuation!(y6, deepcopy(csmodel6), x6, a6)
     @test size(y6) == size(x6)
     FinNetValu.valuation!(y, deepcopy(csmodel), x, a)
-    @test size(y) == size(x)
+    @test size(y[1]) == size(x[1])
 
     FinNetValu.valuation!(y8, deepcopy(csmodel8), x8, a8)
-    @test round.(y8, digits=2) == [1.44, 3.96]
+    @test round.(FinNetValu.Cview(csmodel8, y8), digits=2) == [1.44, 3.96]
+    @test round.(FinNetValu.Πview(csmodel8, y8), digits=2) == hcat([54.84; 69.46])
+    @test round.(FinNetValu.Sview(csmodel8, y8), digits=2) == [0.99]
+
+    FinNetValu.valuation!(y8, deepcopy(csmodel8), y8, a8)
+    @test round.(FinNetValu.Cview(csmodel8, y8), digits=2) == [1.26, 3.7]
+    @test round.(FinNetValu.Πview(csmodel8, y8), digits=2) == hcat([37.42; 69.20])
+    @test round.(FinNetValu.Sview(csmodel8, y8), digits=3) == [0.989]
 end

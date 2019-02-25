@@ -19,7 +19,7 @@ ADV = [50.]
 σ = [0.02]
 c = 0.4
 τ = 20.
-α = 1. # not specified exactly for two bank example
+α = 1. # not specified exactly for two bank example, α = 1. creates similar plots
 
 #------------------------------------------------------------------------------#
 # helper functions
@@ -120,7 +120,7 @@ p2 = plot(x*100, L, xlabel=L"Initial shock $\epsilon$ (%)", ylabel="Loss",
             title="Bank B", label=hcat(["L_$(i)" for i in 1:col]...));
 p = plot(p1,p2, layout=(2,1), size=(400, 600))
 
-savefig(p, "demos/plots/Shaanning_Fig_121.png")
+# savefig(p, "demos/plots/Shaanning_Fig_121.png")
 
 # Approximately 1.4 in Shaanning's thesis
 print(string("L1 of Bank B: ", L[end, 1])," (should be approx 1.4 as in thesis)")
@@ -136,7 +136,7 @@ p2 = plot(x*100, Γ_B, xlabel=L"Initial shock $\epsilon$ (%)", ylabel=L"$\Gamma$
             title="Bank B", label=hcat(["L_$(i)" for i in 1:col]...));
 p = plot(p1,p2, layout=(2,1), size=(400, 600))
 
-savefig(p, "demos/plots/Shaanning_Fig_122.png")
+# savefig(p, "demos/plots/Shaanning_Fig_122.png")
 
 #-------------------------------------------------------------------------------
 # replicate Figure 1.2.4
@@ -190,4 +190,4 @@ p2 = heatmap(xs*100, ys, insolmap[:,:,2], yflip=true,
             title="Bank B");
 p = plot(p1,p2, layout=(2,1), size=(400, 600), dpi=100)
 
-savefig(p, "demos/plots/Shaanning_Fig_124.png")
+# savefig(p, "demos/plots/Shaanning_Fig_124.png")
