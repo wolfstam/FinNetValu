@@ -1,12 +1,15 @@
 """
 Implements the Cont and Shaaning firesales model from Cont & Shaanning, 2017.
 """
+# TODO:
+#       - how to handle a in this model?
 
 struct CSModel <: FinancialModel
 
-    Π
-    C
-    S
+    Π_k
+    C_ϵ
+    S_k
+    I_ϵ
     B
     δ
     λ_max
@@ -16,27 +19,36 @@ struct CSModel <: FinancialModel
     M
 
     """
-    Π   : [N x M]
+    Π_0 : [N x M]
     C   : [N,]
+    Θ   : [N x K]
+    ϵ   : [K,]
     B   : [M,]
-    S   : [M,]
+    S_0 : [M,]
     ADV : [M,]
     σ   : [M,]
     """
-    function CSModel(Π::AbstractMatrix, C::AbstractVector,
-                    B::AbstractVector, S::AbstractVector,
+    function CSModel(Π_0::AbstractMatrix, C::AbstractVector,
+                    Θ::AbstractMatrix, ϵ::AbstractVector,
+                    B::AbstractVector, S_0::AbstractVector,
                     ADV::AbstractVector, σ::AbstractVector, c, τ,
                     λ_max; λ_target=0.95*λ_max, α=0.5)
-        @argcheck size(Π, 1) == size(C, 1)
-        @argcheck size(B, 1) == size(S, 1) == size(ADV, 1) == size(σ, 1) == size(Π, 2)
+        @argcheck size(Π_0, 1) == size(Θ, 1) == size(C, 1)
+        @argcheck size(B, 1) == size(S_0, 1) == size(ADV, 1) == size(σ, 1) == size(Π_0, 2)
+        @argcheck size(ϵ, 1) == size(Θ, 2)
         @argcheck 1. < λ_max
         @argcheck λ_target <= λ_max
         @argcheck 0. <= α <= 1.
 
-        D = marketdepth(ADV, σ, c, τ)
-        δ = [(1 - B[i]/S[i])*D[i] for i in 1:size(Π, 2)]
+        # loss in the value of illiquid holdings due to stress scenario
+        I_ϵ = [sum(Θ[i,:]) - sum(ϵ.*Θ[i,:]) for i in 1:size(Θ,1)]
+        # decrease in equity due to stress scenario
+        C_ϵ = [max(C[i] - sum(ϵ.*Θ[i,:]), 0) for i in 1:size(C,1)]
 
-        new(Π, C, S, B, δ, λ_max, λ_target, α, size(C, 1), size(Π, 2))
+        D = marketdepth(ADV, σ, c, τ)
+        δ = [(1 - B[i]/S_0[i])*D[i] for i in 1:size(Π_0, 2)]
+
+        new(Π_0, C_ϵ, S_0, I_ϵ, B, δ, λ_max, λ_target, α, size(C, 1), size(Π_0, 2))
     end
 end
 
@@ -48,7 +60,7 @@ numfirms(net::CSModel) = net.N
 
 function valuation!(y, net::CSModel, x, a)
     # compute the deleverage proportion
-    Γ = delevprop(net, x, a)
+    Γ = delevprop(net, x)
     # compute market impact of previous sales
     Ψ = marketimpact(net, x, sum(Γ .* Πview(net, x), dims=1)[:])
 
@@ -61,7 +73,7 @@ end
 
 function valuation(net::CSModel, x::AbstractVector, a)
     # compute the deleverage proportion
-    Γ = delevprop(net, x, a)
+    Γ = delevprop(net, x)
     # compute market impact of previous sales, using S_{k}
     Ψ = marketimpact(net, x, sum(Γ .* Πview(net, x), dims=1)[:])
 
@@ -73,11 +85,7 @@ function valuation(net::CSModel, x::AbstractVector, a)
 end
 
 function init(net::CSModel, a)
-    # decrease in equity due to stress scenario
-    C_ϵ = [max(net.C[i] - sum(ϵview(net, a) .* Θview(net, a)[i,:]), 0)
-            for i in 1:size(net.C, 1)]
-
-    return vcat(vec(hcat(C_ϵ, copy(net.Π))), copy(net.S))
+    return vcat(vec(hcat(copy(net.C_ϵ), copy(net.Π_k))), copy(net.S_k))
 end
 
 function solvent(net::CSModel, x::AbstractVector)
@@ -91,26 +99,6 @@ end
 ##########################
 # Model specific methods #
 ##########################
-
-"""
-    init_a(net, Θ, ϵ)
-
-Θ   : [N x K]
-ϵ   : [K,]
-Initializes the shocked variable, a, consisting of [I_ϵ, Θ, ϵ], where
-I_ϵ are the shocked illiquid assets given the initial illiquid holdings, Θ, and
-initial percentage loss of illiquid assets, ϵ.
-"""
-function init_a(net::CSModel, Θ::AbstractMatrix, ϵ::AbstractVector)
-    @argcheck size(Θ, 1) == size(net.C, 1)
-    @argcheck size(ϵ, 1) == size(Θ, 2)
-
-    # loss in the value of illiquid holdings due to stress scenario
-    I_ϵ = [sum(Θ[i,:]) - sum(ϵ.*Θ[i,:]) for i in 1:size(Θ,1)]
-
-    return vcat(I_ϵ, vec(Θ), ϵ, size(Θ, 2))
-end
-
 """
     compΠ(net, x, Γ, Ψ)
 
@@ -158,8 +146,8 @@ end
 
 Computes the leverage ratio of every bank.
 """
-function leverageratio(net::CSModel, x, a)
-    return [(sum(Πview(net, x)[i,:])+I_ϵview(net, a)[i])/Cview(net, x)[i]
+function leverageratio(net::CSModel, x)
+    return [(sum(Πview(net, x)[i,:])+net.I_ϵ[i])/Cview(net, x)[i]
             for i in 1:numfirms(net)]
 end
 
@@ -168,9 +156,9 @@ end
 
 Computes the deleverage proportion for each bank.
 """
-function delevprop(net::CSModel, x, a)
+function delevprop(net::CSModel, x)
     delev = zeros(size(Cview(net, x)))
-    λ = leverageratio(net, x, a)
+    λ = leverageratio(net, x)
     solv = solvent(net, x)
     for i in 1:numfirms(net)
         # only if the leverage is higher than the system wide max leverage,
@@ -178,9 +166,9 @@ function delevprop(net::CSModel, x, a)
         # (and the institute is solvent)
         # does it sell a proportion of its' security assets
         if ((λ[i] > net.λ_max)
-            && (sum(Πview(net, x)[i,:]) > 0.)) #&& (solv[i]))
+            && (sum(Πview(net, x)[i,:]) > 0.) && (solv[i]))
             delev[i] = min((sum(Πview(net, x)[i,:])
-                            + I_ϵview(net, a)[i] - net.λ_target * Cview(net, x)[i])
+                            + net.I_ϵ[i] - net.λ_target * Cview(net, x)[i])
                             /sum(Πview(net, x)[i,:]),
                             1)
         end
@@ -237,40 +225,5 @@ function Sview(net::CSModel, x::AbstractVector)
     M = numsecassets(net)
     return view(x, (N+N*M)+1:(N+M*N+M))
 end
-
-"""
-    I_ϵview(net, a)
-
-View the total value of shocked illiquid holdings in the shocked assets
-variable, a.
-"""
-function I_ϵview(net::CSModel, a)
-    return view(a, 1:numfirms(net))
-end
-
-"""
-    Θview(net, a)
-
-View the illiquid holdings matrix in the shocked assets variable, a.
-"""
-function Θview(net::CSModel, a)
-    N = numfirms(net)
-    K = numillassets(net, a)
-    return reshape(view(a, (N+1):(K*N+N)), N, K)
-end
-
-"""
-    ϵview(net, a)
-
-View the vector of percentage losses in illiquid holdings in the shocked assets
-variable, a.
-"""
-function ϵview(net::CSModel, a)
-    N = numfirms(net)
-    K = numillassets(net, a)
-    return view(a, (N+N*K)+1:(N+K*N+K))
-end
-
-numillassets(net::CSModel, a) = Int64.(view(a, length(a)))
 
 numsecassets(net::CSModel) = net.M

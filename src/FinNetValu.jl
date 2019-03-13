@@ -14,8 +14,7 @@ export fixvalue, fixjacobian, valuation!, valuation, solvent, numfirms
 # Model constructors
 export XOSModel, NEVAModel, EisenbergNoeModel, FurfineModel, LinearDebtRankModel, CSModel
 # Model specifics
-export bookequity, equityview, debtview, delevprop, marketimpact, marketdepth,
-        illiquid
+export bookequity, equityview, debtview, illiquid, init_a
 
 # Pricing helpers
 export BlackScholesParams, Aτ, discount

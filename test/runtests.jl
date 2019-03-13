@@ -12,6 +12,5 @@ end
 end
 
 @testset "models" begin
-    # include("./models/test_csmodel.jl")
-    include("./models/test_csmodel_xasCPiS.jl")
+    include("./models/test_csmodel.jl")
 end

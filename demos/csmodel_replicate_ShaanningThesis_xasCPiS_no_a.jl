@@ -11,7 +11,7 @@ pyplot()
 Π = hcat([90.; 70.])
 Θ = [10. 0.; 0. 20.]
 C = [4., 4.5]
-λ_max = 33
+λ_max = 33 
 λ_target = 0.95*λ_max
 ϵ = [0.2, 0.0]
 S = [1.]
@@ -32,17 +32,17 @@ Simulates k rounds of deleveraging given the initial CSModel. Returns the
 deleveraging proportions of 1st bank and the losses of second bank over k
 rounds.
 """
-function runkrounds_121(csmodel::CSModel, Θ, ϵ, k::Int)
+function runkrounds_121(csmodel::CSModel, k::Int)
     Γ = ones(k)
     L = ones(k)
     # intial a
-    a = FinNetValu.init_a(csmodel, Θ, ϵ)
+    a = ones(size(C))
     # initial current state
-    x = FinNetValu.init(csmodel, a)
+    x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
 
     for j in 1:k
         # deleveraging proportion before sales
-        Γ[j] = FinNetValu.delevprop(csmodel, x, a)[1]
+        Γ[j] = FinNetValu.delevprop(csmodel, x)[1]
         tmp = deepcopy(FinNetValu.Cview(csmodel, x)[2])
         # current state updated after deleveraging round
         x = valuation(csmodel, x, a)
@@ -56,17 +56,17 @@ end
 Simulates k rounds of deleveraging given the initial CSModel. Returns the
 deleveraging proportions of both banks over k rounds.
 """
-function runkrounds_122(csmodel::CSModel, Θ, ϵ, k::Int)
+function runkrounds_122(csmodel::CSModel, k::Int)
     Γ_A = ones(k)
     Γ_B = ones(k)
     # intial a
-    a = FinNetValu.init_a(csmodel, Θ, ϵ)
+    a = ones(size(C))
     # initial current state
-    x = FinNetValu.init(csmodel, a)
+    x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
 
     for j in 1:k
         # deleveraging proportion before sales
-        tmp = FinNetValu.delevprop(csmodel, x, a)
+        tmp = FinNetValu.delevprop(csmodel, x)
         Γ_A[j] = tmp[1]
         Γ_B[j] = tmp[2]
         # current state updated after deleveraging round
@@ -80,16 +80,16 @@ end
 Sweeps over a range of initial shock values of asset class 1 and simulates k
 rounds of deleveraging for each shock value.
 """
-function varyshockskrounds(;ϵ1_all=collect(0:0.001:0.45), k=5, figure=121)
+function varyshockskrounds(;ϵ1_all=collect(0:0.01:0.45), k=5, figure=121)
     if figure == 121
         Γ = ones(size(ϵ1_all, 1), k)
         L = ones(size(ϵ1_all, 1), k)
 
         for i in 1:size(ϵ1_all, 1)
-            csmodel = CSModel(Π, C, B, S, ADV, σ, c, τ,
+            csmodel = CSModel(Π, C, Θ, [ϵ1_all[i], 0.], B, S, ADV, σ, c, τ,
                                     λ_max, λ_target=λ_target, α=α)
 
-            Γ[i, :], L[i, :] = runkrounds_121(csmodel, Θ, [ϵ1_all[i], 0.], k)
+            Γ[i, :], L[i, :] = runkrounds_121(csmodel, k)
         end
         return Γ, L, ϵ1_all
     elseif figure == 122
@@ -97,10 +97,10 @@ function varyshockskrounds(;ϵ1_all=collect(0:0.001:0.45), k=5, figure=121)
         Γ_B = ones(size(ϵ1_all, 1), k)
 
         for i in 1:size(ϵ1_all, 1)
-            csmodel = CSModel(Π, C, B, S, ADV, σ, 0.3*c, τ,
+            csmodel = CSModel(Π, C, Θ, [ϵ1_all[i], 0.], B, S, ADV, σ, 0.3*c, τ,
                                     λ_max, λ_target=λ_target, α=α)
 
-            Γ_A[i, :], Γ_B[i, :] = runkrounds_122(csmodel, Θ, [ϵ1_all[i], 0.], k)
+            Γ_A[i, :], Γ_B[i, :] = runkrounds_122(csmodel, k)
         end
         return Γ_A, Γ_B, ϵ1_all
     end
@@ -156,11 +156,10 @@ function visualizeinsolvencyilliquidity(;ϵ1_all=collect(0:0.01:0.45),
     map = 60*ones(Int64, size(sf, 1), size(ϵ1_all, 1), 2)
     for i in 1:size(sf, 1)
         for j in 1:size(ϵ1_all, 1)
-            csmodel = CSModel(Π, C, B, S, ADV, σ,
+            csmodel = CSModel(Π, C, Θ, [ϵ1_all[j], 0.], B, S, ADV, σ,
                                     c*sf[i], τ, λ_max, λ_target=λ_target, α=α)
             # run fire sales cascade, store fixed point
-            a = FinNetValu.init_a(csmodel, Θ, [ϵ1_all[j], 0.])
-            fp = fixvalue(csmodel, a)
+            fp = fixvalue(csmodel, [0., 0.])
 
             # compute whether banks illiquid or solvent after cascade
             # give specific code for illiquid and insolvent
