@@ -124,10 +124,10 @@ print(leverage_ratio)
 
 num_insolv = ones(size(ϵ_array, 2))
 for j in 1:size(ϵ_array, 2)
-    csmodel = CSModel(Π, C, Θ, ϵ_array[:, j], B, S, ADV, σ,
-                            c, τ, λ_max, λ_target=λ_target, α=α)
+    csmodel = CSModel(Π, C, B, S, ADV, σ,
+                            c, τ, λ_max, λ_target=λ_target, α=α, insolsell=false)
     # run fire sales cascade, store fixed point
-    fp = fixvalue(csmodel, [0., 0.])
+    fp = fixvalue(csmodel, init_a(csmodel, Θ, ϵ_array[:, j]))
     num_insolv[j] = sum(.!solvent(csmodel, fp))
 end
 
@@ -143,12 +143,12 @@ savefig(p, "demos/plots/Schnabel_Fig_1.png")
 Simulates k rounds of valuation given the initial CSModel. Returns the
 systems state and insolvency index B.
 """
-function runkrounds(csmodel::CSModel, k::Int)
+function runkrounds(csmodel::CSModel, Θ, ϵ, k::Int)
 
     # intial a
-    a = ones(size(C))
+    a = init_a(csmodel, Θ, ϵ)
     # initial current state
-    x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
+    x = FinNetValu.init(csmodel, a)
 
     for j in 1:k
         # current state updated after deleveraging round
@@ -167,10 +167,10 @@ num_insolv = ones(size(ϵ_array, 2))
 ii_b = ones(size(ϵ_array, 2))
 
 for j in 1:size(ϵ_array, 2)
-    csmodel = CSModel(Π, C, Θ, ϵ_array[:, j], B, S, ADV, σ,
-                            c, τ, λ_max, λ_target=λ_target, α=α)
+    csmodel = CSModel(Π, C, B, S, ADV, σ,
+                            c, τ, λ_max, λ_target=λ_target, α=α, insolsell=false)
     # run fire sales cascade, store fixed point
-    x, ii_b[j] = runkrounds(csmodel, 20)
+    x, ii_b[j] = runkrounds(csmodel, Θ, ϵ_array[:, j], 20)
     num_insolv[j] = sum(.!solvent(csmodel, x))# + sum(illiquid(csmodel, x))
 end
 
@@ -190,13 +190,13 @@ DE_commercial_Θ_ids = [occursin("commercial.real.estate_DE", x) for x in Θ_ids
 ϵ_array_5 = zeros(size(Θ_ids))
 ϵ_array_5[DE_commercial_Θ_ids] .= 0.1
 
-csmodel = CSModel(Π, C, Θ, ϵ_array_5, B, S, ADV, σ,
-                        c, τ, λ_max, λ_target=λ_target, α=α)
+csmodel = CSModel(Π, C, B, S, ADV, σ,
+                        c, τ, λ_max, λ_target=λ_target, α=α, insolsell=false)
 
 # intial a
-a = ones(size(C))
+a = init_a(csmodel, Θ, ϵ_array_5)
 # initial current state
-x = FinNetValu.init(csmodel, ones(numfirms(csmodel)))
+x = FinNetValu.init(csmodel, a)
 
 delev = zeros(10,1)
 insol = zeros(10,1)
@@ -205,29 +205,29 @@ insol = zeros(10,1)
 #     x = valuation(csmodel, x, a)
 # end
 
-delev[1] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[1] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[1] = sum(.!solvent(csmodel, x))
 x = valuation(csmodel, x, a)
-delev[2] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[2] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[2] = sum(.!solvent(csmodel, x))
 x = valuation(csmodel, x, a)
-delev[3] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[3] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[3] = sum(.!solvent(csmodel, x))
 tmp = FinNetValu.Cview(csmodel, x)
 x = valuation(csmodel, x, a)
-delev[4] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[4] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[4] = sum(.!solvent(csmodel, x))
 x = valuation(csmodel, x, a)
-delev[5] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[5] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[5] = sum(.!solvent(csmodel, x))
 x = valuation(csmodel, x, a)
-delev[6] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[6] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[6] = sum(.!solvent(csmodel, x))
 x = valuation(csmodel, x, a)
-delev[7] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[7] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[7] = sum(.!solvent(csmodel, x))
 x = valuation(csmodel, x, a)
-delev[8] = sum(FinNetValu.delevprop(csmodel, x) .> 0.0)
+delev[8] = sum(FinNetValu.delevprop(csmodel, x, a) .> 0.0)
 insol[8] = sum(.!solvent(csmodel, x))
 
 print(delev)
@@ -245,14 +245,15 @@ hmap = ones(5,5)
 
 tmpC = deepcopy(C)
 
-for bailout in 1:5
+for bailout in 1:10
     tmpC[hsbc_id] .+= bailout*(120000000000/5)
 
-    for bailout2 in 1:5
+    for bailout2 in 1:10
         tmpC[bnp_id] .+= bailout2*(120000000000/5)
-        csmodel = CSModel(Π, tmpC, Θ, DE_commercial_Θ_ids.*0.1, B, S, ADV, σ,
-                            c, τ, λ_max, λ_target=λ_target, α=α)
-        fp = fixvalue(csmodel, [0., 0.])
+        csmodel = CSModel(Π, tmpC, B, S, ADV, σ,
+                            c, τ, λ_max, λ_target=λ_target, α=α, insolsell=false)
+        a = init_a(csmodel, Θ, DE_commercial_Θ_ids.*0.1)
+        fp = fixvalue(csmodel, a)
         sol = .!solvent(csmodel, fp)
         hmap[bailout, bailout2] = sol[hsbc_id][1] + 2*sol[bnp_id][1]
     end

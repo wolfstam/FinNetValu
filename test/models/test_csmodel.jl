@@ -61,8 +61,11 @@ a8_2 = FinNetValu.init_a(csmodel8_2, Θ2, [0.2, 0.])
 csmodel8_3 = deepcopy(csmodel8)
 a8_3 = FinNetValu.init_a(csmodel8_3, Θ2, [0.2, 0.])
 
-csmodel9 = FinNetValu.CSModel(Π, [0, 4.5], B, S, ADV, σ, 1, 1, λ_max)
+csmodel9 = FinNetValu.CSModel(Π, [0, 4.5], B, S, ADV, σ, 1, 1, λ_max; insolsell=false)
 a9 = FinNetValu.init_a(csmodel9, Θ, ϵ)
+
+csmodel9_2 = FinNetValu.CSModel(Π, [0, 4.5], B, S, ADV, σ, 1, 1, λ_max; insolsell=true)
+a9_2 = FinNetValu.init_a(csmodel9_2, Θ, ϵ)
 
 x = FinNetValu.init(csmodel, a)
 y = deepcopy(x)
@@ -79,8 +82,10 @@ x8 = FinNetValu.init(csmodel8, a8)
 y8 = deepcopy(x8)
 x8_2 = FinNetValu.init(csmodel8_2, a8_2)
 y8_2 = deepcopy(x8_2)
-x9 = FinNetValu.init(csmodel9, a)
+x9 = FinNetValu.init(csmodel9, a9)
 y9 = deepcopy(x9)
+x9_2 = FinNetValu.init(csmodel9_2, a9_2)
+y9_2 = deepcopy(x9)
 
 # run 1 round of valuation
 x8_3 = FinNetValu.valuation(csmodel8_3, FinNetValu.init(csmodel8_3, a8_3), a8_3)
@@ -94,7 +99,8 @@ x8_4 = FinNetValu.valuation(csmodel8_4, x8_3, a8_4)
 @testset "csmodel" begin
     @test @isdefined csmodel
     @test fieldnames(typeof(csmodel)) == (:Π, :C, :S, :B, :δ,
-                                            :λ_max, :λ_target, :α, :N, :M)
+                                            :λ_max, :λ_target,
+                                            :α, :N, :M, :insolsell)
 
     @test_throws ArgumentError FinNetValu.CSModel(Π', C, B, S, ADV,
                                                             σ, 1, 1, 0.5)
@@ -193,7 +199,8 @@ end
     @test round.(FinNetValu.delevprop(csmodel8, x8, a8), digits=2) == [0.39, 0.]
     @test round.(FinNetValu.delevprop(csmodel8_3, x8_3, a8_3), digits=2) == [0.32, 0.]
     @test round.(FinNetValu.delevprop(csmodel8_4, x8_4, a8_3), digits=2) == [0.15, 0.]
-    # @test FinNetValu.delevprop(csmodel9, x9, a9)[1] == 0.
+    @test FinNetValu.delevprop(csmodel9, x9, a9)[1] == 0.
+    @test FinNetValu.delevprop(csmodel9_2, x9_2, a9_2)[1] != 0.
 end
 
 @testset "marketimpact" begin

@@ -1,7 +1,4 @@
 ## Replicate two bank example from Shaanning 2017 thesis
-# IMPORTANT: Cont & Shaanning let insolvent banks sell their remaining liquid
-# assets. To replicate these figures this must be considered in csmodel.jl, i.e.
-# comment out && (solv[i]) in delevprop()
 
 using FinNetValu
 using LaTeXStrings

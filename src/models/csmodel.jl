@@ -14,6 +14,7 @@ struct CSModel <: FinancialModel
     α
     N
     M
+    insolsell
 
     """
     Π   : [N x M]
@@ -22,11 +23,13 @@ struct CSModel <: FinancialModel
     S   : [M,]
     ADV : [M,]
     σ   : [M,]
+    insolsell : boolean whether insolvent but still liquid banks are allowed to
+                still sell portions of their liquid holdings
     """
     function CSModel(Π::AbstractMatrix, C::AbstractVector,
                     B::AbstractVector, S::AbstractVector,
                     ADV::AbstractVector, σ::AbstractVector, c, τ,
-                    λ_max; λ_target=0.95*λ_max, α=0.5)
+                    λ_max; λ_target=0.95*λ_max, α=0.5, insolsell=true)
         @argcheck size(Π, 1) == size(C, 1)
         @argcheck size(B, 1) == size(S, 1) == size(ADV, 1) == size(σ, 1) == size(Π, 2)
         @argcheck 1. < λ_max
@@ -36,7 +39,7 @@ struct CSModel <: FinancialModel
         D = marketdepth(ADV, σ, c, τ)
         δ = [(1 - B[i]/S[i])*D[i] for i in 1:size(Π, 2)]
 
-        new(Π, C, S, B, δ, λ_max, λ_target, α, size(C, 1), size(Π, 2))
+        new(Π, C, S, B, δ, λ_max, λ_target, α, size(C, 1), size(Π, 2), insolsell)
     end
 end
 
@@ -173,12 +176,14 @@ function delevprop(net::CSModel, x, a)
     λ = leverageratio(net, x, a)
     solv = solvent(net, x)
     for i in 1:numfirms(net)
+        # if banks are allowed to sell when insolvent sell_bool is always true,
+        # otherwise sell_bool is only true when the bank is solvent
+        if net.insolsell sell_bool=true else sell_bool=solv[i] end
+
         # only if the leverage is higher than the system wide max leverage,
-        # the institute is not illiquid,
-        # (and the institute is solvent)
+        # the institute is not illiquid and sell_bool is true
         # does it sell a proportion of its' security assets
-        if ((λ[i] > net.λ_max)
-            && (sum(Πview(net, x)[i,:]) > 0.)) #&& (solv[i]))
+        if ((λ[i] > net.λ_max) && (sum(Πview(net, x)[i,:]) > 0.) && (sell_bool))
             delev[i] = min((sum(Πview(net, x)[i,:])
                             + I_ϵview(net, a)[i] - net.λ_target * Cview(net, x)[i])
                             /sum(Πview(net, x)[i,:]),
