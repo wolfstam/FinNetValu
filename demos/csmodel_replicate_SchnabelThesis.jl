@@ -241,7 +241,7 @@ DE_commercial_Θ_ids = [occursin("commercial.real.estate_DE", x) for x in Θ_ids
 hsbc_id = [occursin("GB089", x) for x in bank_ids]
 bnp_id = [occursin("FR013", x) for x in bank_ids]
 
-hmap = ones(5,5)
+hmap = ones(10,10)
 
 tmpC = deepcopy(C)
 

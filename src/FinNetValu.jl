@@ -6,6 +6,7 @@ include("models/model.jl")
 include("models/neva.jl")
 include("models/xos.jl")
 include("models/csmodel.jl")
+include("models/vbmodel.jl")
 include("pricing/bs.jl")
 include("pricing/mc.jl")
 

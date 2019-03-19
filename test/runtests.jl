@@ -13,4 +13,5 @@ end
 
 @testset "models" begin
     include("./models/test_csmodel.jl")
+    include("./models/test_vbmodel.jl")
 end
