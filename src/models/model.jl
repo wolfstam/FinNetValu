@@ -78,6 +78,17 @@ function fixjacobian(net::FinancialModel, a, x = fixvalue(net, a))
 end
 
 """
+    fixjacobiannet(net, a [, x])
+
+Compute the Jacobian matrix of `fixvalue(net, a)` with respect to the network
+parameters (e.g. crossholding matrices for XOS model) using the implicit
+function theorem  and autodiff (currently via ForwardDiff). Note
+that `x` is assumed to solve the fixed point `x = valuation(net,
+x, a)` which is also its default value.
+"""
+function fixjacobiannet end
+
+"""
     solvent(net, x)
 
 Returns a Boolean vector indicating the solvency of each firm in the
