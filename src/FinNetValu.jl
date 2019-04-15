@@ -2,6 +2,7 @@ module FinNetValu
 
 include("utils/utils.jl")
 include("utils/nets.jl")
+include("utils/specs.jl")
 include("models/model.jl")
 include("models/neva.jl")
 include("models/xos.jl")
