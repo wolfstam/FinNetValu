@@ -92,16 +92,6 @@ function fixjacobiannet(net::XOSModel, a, x = fixvalue(net, a))
     dxdMᵈ = reshape((I - dVdx) \ reshape(dVdMᵈ, (2*N, N*N)), (2*N, N, N))
     dxdd = (I - dVdx) \ dVdd
 
-    # dxdMˢ = zeros(2*N, N, N)
-    # dxdMᵈ = zeros(2*N, N, N)
-    # for k in 1:N
-    #     # i.e. (I - dVdx) \ dVdMˢ[:,:,k]
-    #     dxdMˢ[:,:,k] .= (I - dVdx) \ vcat(Diagonal(ξ) * (s[k] .* eye), Diagonal(eins .- ξ) * (s[k] .* eye))
-    #     dxdMᵈ[:,:,k] .= (I - dVdx) \ vcat(Diagonal(ξ) * (r[k] .* eye), Diagonal(eins .- ξ) * (r[k] .* eye))
-    # end
-    # tmpdxdMˢ = reshape((I - dVdx) \ reshape(dVdMˢ, (2*N, N*N)), (2*N, N, N))
-    # if all(tmpdxdMˢ .== dxdMˢ) println("Yup!!") end
-
     return [dxdMˢ, dxdMᵈ, dxdd]
 end
 
@@ -138,63 +128,3 @@ equityview(net::XOSModel, x::AbstractMatrix) = view(x, 1:numfirms(net), :)
 
 debtview(net::XOSModel, x::AbstractVector) = begin N = numfirms(net); view(x, (N+1):(2*N)) end
 debtview(net::XOSModel, x::AbstractMatrix) = begin N = numfirms(net); view(x, (N+1):(2*N), :) end
-
-# """
-#     dsdMˢview(net, J)
-#
-# View the ds/dMˢ subarray of the fixjacobiannet array, 'J'.
-# """
-# function dsdMˢview(net::XOSModel, J::AbstractMatrix)
-#     N = numfirms(net)
-#     reshape(view(J, 1:N, 1:N), N, N)
-# end
-#
-# """
-#     drdMˢview(net, J)
-#
-# View the dr/dMˢ subarray of the fixjacobiannet array, 'J'.
-# """
-# function drdMˢview(net::XOSModel, J::AbstractMatrix)
-#     N = numfirms(net)
-#     reshape(view(J, N+1:2*N, 1:N), N, N)
-# end
-#
-# """
-#     dsdMᵈview(net, J)
-#
-# View the ds/dMᵈ subarray of the fixjacobiannet array, 'J'.
-# """
-# function dsdMᵈview(net::XOSModel, J::AbstractMatrix)
-#     N = numfirms(net)
-#     reshape(view(J, 1:N, N+1:2*N), N, N)
-# end
-#
-# """
-#     drdMᵈview(net, J)
-#
-# View the dr/dMᵈ subarray of the fixjacobiannet array, 'J'.
-# """
-# function drdMᵈview(net::XOSModel, J::AbstractMatrix)
-#     N = numfirms(net)
-#     reshape(view(J, N+1:2*N, N+1:2*N), N, N)
-# end
-#
-# """
-#     dsddview(net, J)
-#
-# View the ds/dd subarray of the fixjacobiannet array, 'J'.
-# """
-# function dsddview(net::XOSModel, J::AbstractMatrix)
-#     N = numfirms(net)
-#     reshape(view(J, 1:N, 2*N+1:3*N), N, N)
-# end
-#
-# """
-#     drddview(net, J)
-#
-# View the dr/dd subarray of the fixjacobiannet array, 'J'.
-# """
-# function drddview(net::XOSModel, J::AbstractMatrix)
-#     N = numfirms(net)
-#     reshape(view(J, N+1:2*N, 2*N+1:3*N), N, N)
-# end
