@@ -77,22 +77,35 @@ function fixjacobiannet(net::XOSModel, a, x = fixvalue(net, a))
     r = debtview(net, x)
     s = equityview(net, x)
 
-    dVdMᵈ = zeros(2*N, N, N)
-    dVdMˢ = zeros(2*N, N, N)
-    for k in 1:N
-        dVdMᵈ[:, :, k] = vcat(Diagonal(ξ) * (r[k] .* eye), Diagonal(eins .- ξ) * (r[k] .* eye))
-        dVdMˢ[:, :, k] = vcat(Diagonal(ξ) * (s[k] .* eye), Diagonal(eins .- ξ) * (s[k] .* eye))
+    dVdL = zeros(2*N, N, N)
+    for i in 1:N
+        for k in 1:N
+            θ_k = r[k]/net.d[k]
+            for l in 1:N
+                dVdL[i, k, l] = -ξ[i]*(i==k) + ξ[i]*((i==l)*θ_k - net.Mᵈ[i, k]*θ_k)
+                dVdL[i+N, k, l] = ξ[i]*(i==k) + (1-ξ[i])*((i==l)*θ_k - net.Mᵈ[i, k]*θ_k)
+            end
+        end
     end
 
-    dVdd = vcat(Diagonal(ξ) .* (-1. .* eye), Diagonal(ξ) .* eye)
+    dVdMᵈ = zeros(2*N, N, N)
+    dVdMˢ = zeros(2*N, N, N)
+    for l in 1:N
+        dVdMᵈ[:, :, l] = vcat(Diagonal(ξ) * (r[l] .* eye), Diagonal(eins .- ξ) * (r[l] .* eye))
+        dVdMˢ[:, :, l] = vcat(Diagonal(ξ) * (s[l] .* eye), Diagonal(eins .- ξ) * (s[l] .* eye))
+    end
+
+    dVdd = vcat(Diagonal(-ξ) .* eye, Diagonal(ξ) .* eye)
+    
     dVdx = vcat(hcat(Diagonal(ξ) * net.Mˢ, Diagonal(ξ) * net.Mᵈ),
              hcat(Diagonal(eins .- ξ) * net.Mˢ, Diagonal(eins .- ξ) * net.Mᵈ))
 
+    dxdL = reshape((I - dVdx) \ reshape(dVdL, (2*N, N*N)), (2*N, N, N))
     dxdMˢ = reshape((I - dVdx) \ reshape(dVdMˢ, (2*N, N*N)), (2*N, N, N))
     dxdMᵈ = reshape((I - dVdx) \ reshape(dVdMᵈ, (2*N, N*N)), (2*N, N, N))
     dxdd = (I - dVdx) \ dVdd
 
-    return [dxdMˢ, dxdMᵈ, dxdd]
+    return [dxdL, dxdMˢ, dxdMᵈ, dxdd]
 end
 
 function solvent(net::XOSModel, x)
