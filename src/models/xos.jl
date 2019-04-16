@@ -67,7 +67,7 @@ function fixjacobian(net::XOSModel, a, x = fixvalue(net, a))
 end
 
 """
-Returns [dx/dMˢ, dx/dMᵈ, dx/dd]
+Returns [dx/dL, dx/dMˢ, dx/dMᵈ, dx/dd]
 """
 function fixjacobiannet(net::XOSModel, a, x = fixvalue(net, a))
     ξ = solvent(net, x)
@@ -96,7 +96,7 @@ function fixjacobiannet(net::XOSModel, a, x = fixvalue(net, a))
     end
 
     dVdd = vcat(Diagonal(-ξ) .* eye, Diagonal(ξ) .* eye)
-    
+
     dVdx = vcat(hcat(Diagonal(ξ) * net.Mˢ, Diagonal(ξ) * net.Mᵈ),
              hcat(Diagonal(eins .- ξ) * net.Mˢ, Diagonal(eins .- ξ) * net.Mᵈ))
 
