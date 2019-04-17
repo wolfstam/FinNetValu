@@ -29,7 +29,7 @@ Generate random adjacency matrix from Erdos-Renyi random graph
 ensemble with `N` nodes and connection probability `p`. The network
 is directed by default.
 """
-function erdosrenyi(N::Integer, p::Real, directed = true)
+function erdosrenyi(N::Integer, p::Float64, directed = true)
     @argcheck 0.0 <= p <= 1.0
     @argcheck 0 < N
     A = spzeros(N, N)
@@ -50,6 +50,28 @@ function erdosrenyi(N::Integer, p::Real, directed = true)
         end
     end
     A
+end
+
+"""
+    erdosrenyi(N, M, p, directed)
+
+Generate adjacency matrix from bipartite Erdos-Renyi random graph
+ensemble with `N` nodes belonging to set 1 and `M` nodes belonging to set 2
+and connection probability `p` between nodes of both sets.
+The network is directed by default.
+"""
+function erdosrenyi(N::Integer, M::Integer, p::Float64, directed = true)
+    @argcheck 0.0 <= p <= 1.0
+    @argcheck 0 < N
+    @argcheck 0 < M
+    # biadjacency matrix
+    biadj = reshape(rand(N*M) .< p, (N, M))
+    if directed
+        biadj2 = reshape(rand(N*M) .< p, (M, N))
+    else
+        biadj2 = biadj'
+    end
+    return vcat(hcat(zeros(N,N), biadj), hcat(biadj2, zeros(M,M)))
 end
 
 """
