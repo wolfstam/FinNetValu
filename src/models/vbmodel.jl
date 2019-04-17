@@ -28,7 +28,6 @@ end
 
 numfirms(net::VBModel) = net.N
 
-# TODO: clean up design of valuation, compprices, calcfailingbanks and fracliq
 function valuation(net::VBModel, x, a)
     failing_ids = calcfailingbanks(net, x)
     Γ = fracliq(net, x, failing_ids)
