@@ -1,7 +1,11 @@
+#TODO: finish documentation
 """
-Implements the Cont and Shaaning firesales model from Cont & Shaanning, 2017.
-"""
+    CSModel(Π, C, B, S, ADV, σ, c, τ,
+                λ_max; λ_target=0.95*λ_max, α=0.5, insolsell=true)
 
+Implements the Cont and Shaaning firesales model from Cont & Shaanning, 2017.
+Given ...
+"""
 struct CSModel <: FinancialModel
 
     Π

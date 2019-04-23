@@ -59,9 +59,8 @@ end
     @test_throws ArgumentError FinNetValu.erdosrenyi(2, 3, -1.)
     @test_throws ArgumentError FinNetValu.erdosrenyi(2, -1, 1.)
     @test_throws ArgumentError FinNetValu.erdosrenyi(-2, 1, 1.)
-    @test FinNetValu.erdosrenyi(1, 1, 0.) == spzeros(2, 2)
-    @test FinNetValu.erdosrenyi(2, 3, 1.) == vcat(hcat(zeros(2,2), ones(2,3)), hcat(ones(3,2), zeros(3,3)))
-    @test FinNetValu.erdosrenyi(2, 3, 1., false) == vcat(hcat(zeros(2,2), ones(2,3)), hcat(ones(3,2), zeros(3,3)))
+    @test FinNetValu.erdosrenyi(2, 3, 0.) == spzeros(2, 3)
+    @test FinNetValu.erdosrenyi(2, 3, 1.) == ones(2,3)
 end
 
 @testset "rescale" begin

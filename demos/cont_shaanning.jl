@@ -19,9 +19,9 @@ c = 0.4
 
 csmodel = CSModel(Π, C, B, S, ADV, σ, c, τ, λ_max, λ_target=λ_target, α=α)
 # intial a, i.e. apply shock to network
-a = FinNetValu.init_a(csmodel, Θ, ϵ)
+a = init_a(csmodel, Θ, ϵ)
 # initial current state
-x = FinNetValu.init(csmodel, a)
+x = init(csmodel, a)
 
 fp = fixvalue(csmodel, a)
 println(fp)
@@ -32,8 +32,8 @@ println(illiquid(csmodel, fp))
 # to change this, set the boolean to false in the csmodel creation
 # this may produce different dynamics
 csmodel = CSModel(Π, C, B, S, ADV, σ, c, τ, λ_max, λ_target=λ_target, α=α, insolsell=false)
-a = FinNetValu.init_a(csmodel, Θ, ϵ)
-x = FinNetValu.init(csmodel, a)
+a = init_a(csmodel, Θ, ϵ)
+x = init(csmodel, a)
 
 fp = fixvalue(csmodel, a)
 println(fp)
