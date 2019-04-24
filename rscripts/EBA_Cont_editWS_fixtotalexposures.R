@@ -1,4 +1,8 @@
 ### EBA data set
+# Info for the csv file: From the EBA stress test 2011 results website
+# "https://eba.europa.eu/risk-analysis-and-data/eu-wide-stress-testing/2011/results"
+# download the stress test tool for individual results, select all banks, and
+# save the DPCache file. 
 
 library(tidyverse)
 library(readxl)
@@ -101,19 +105,19 @@ test <- cont.data %>%
   mutate(cumsum = cumsum(exposure)) %>%
   mutate(sum.ind.exposures = max(cumsum))
 
-cont.Theta <- cont.data %>%
-    ## Get illiquid assets of all maturities
-    filter(is.na(MATURITY)) %>% ## Either total or no maturity given
-    filter(code %in% ill.asset.codes) %>%
-    ## Name asset classes-country combinations
-    mutate(code_name = key(ill.asset.codes, code)) %>%
-    unite(asset, code_name, country) %>%
-    ## Aggregate as in Cont paper
-    mutate(asset = aggregate.ill.assets(asset)) %>%
-    group_by(bank_id, asset) %>%
-    summarize(exposure = 1e6*sum(exposure, na.rm=TRUE)) %>%
-    ungroup() %>%
-    spread(asset, exposure, fill=0)
+# cont.Theta <- cont.data %>%
+#     ## Get illiquid assets of all maturities
+#     filter(is.na(MATURITY)) %>% ## Either total or no maturity given
+#     filter(code %in% ill.asset.codes) %>%
+#     ## Name asset classes-country combinations
+#     mutate(code_name = key(ill.asset.codes, code)) %>%
+#     unite(asset, code_name, country) %>%
+#     ## Aggregate as in Cont paper
+#     mutate(asset = aggregate.ill.assets(asset)) %>%
+#     group_by(bank_id, asset) %>%
+#     summarize(exposure = 1e6*sum(exposure, na.rm=TRUE)) %>%
+#     ungroup() %>%
+#     spread(asset, exposure, fill=0)
 
 
 cont.Theta <- cont.data %>%

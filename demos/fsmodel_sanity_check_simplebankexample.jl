@@ -32,6 +32,7 @@ d = [0.9, 0.9, 0.9]
 loss = 0.3
 α = 1.0536
 
+# Fix banks with no connections to external assets\n"
 aⁱ[vec(sum(A, dims=2) .== 0)] .= 1
 
 fsmodel = FSModel(A, aᵉ, aⁱ, d, α=α)

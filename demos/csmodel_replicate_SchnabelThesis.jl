@@ -12,7 +12,7 @@ pyplot()
 Takes a DataFrame object, converts it to an Array and drops support for missing.
 """
 function disablemissing_converttoarray(a::DataFrame)
-    return disallowmissing(convert(Array, a))
+    return disallowmissing(convert(Matrix, a))
 end
 
 """
@@ -127,12 +127,12 @@ for j in 1:size(ϵ_array, 2)
     csmodel = CSModel(Π, C, B, S, ADV, σ,
                             c, τ, λ_max, λ_target=λ_target, α=α, insolsell=false)
     # run fire sales cascade, store fixed point
-    fp = fixvalue(csmodel, init_a(csmodel, Θ, ϵ_array[:, j]))
+    fp = fixvalue(csmodel, init_a(csmodel, Θ, ϵ_array[:, j]), m=0)
     num_insolv[j] = sum(.!solvent(csmodel, fp))
 end
 
 p = plot(DE_ϵ*100, num_insolv, xlabel="Shock size in %", ylabel="Number of insolvent banks",
-            title="German stress test scenario", size=(400,300))
+            title="German stress test scenario", legend=false, size=(400,300))
 savefig(p, "demos/plots/Schnabel_Fig_1.png")
 
 #------------------------------------------------------------------------------#

@@ -4,7 +4,7 @@
 Implements a simple firesales model. Given the binary [NxM] adjacency matrix of
 of a bipartite graph with connections between `N` banks and `M` external assets,
 `aᵉ` total external assets per bank, `aⁱ` total liquid assets per bank as well
-as deposits of each bank, `d` (= (aᵉ + aⁱ - capital)).
+as deposits of each bank, `d` (e.g. = (aᵉ + aⁱ - capital)).
 """
 struct FSModel <: FinancialModel
 

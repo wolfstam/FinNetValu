@@ -224,3 +224,4 @@ for (idx in 1:ncol(A)) {
                      list(shocked_asset=idx,
                           failed_banks=list(which(!sim$banks$solvent))))
 }
+results
