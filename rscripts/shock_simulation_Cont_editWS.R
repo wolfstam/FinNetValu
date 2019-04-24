@@ -120,10 +120,21 @@ leverage_target <- function (leverage_target) {
 leverage_default <- function (state, loss) {
     as.numeric(!(state$capital > 0))
 }
-#source("EBA_Cont.R")
-source("EBA_Cont_editWS.R")
 
-#--------------------------#
+shock_assets <- function (state, assets, reduction_factor) {
+    Pi_shock <- state$Pi
+    Pi_shock[,assets] <- reduction_factor * Pi_shock[,assets]
+    loss <- rowSums(state$Pi) - rowSums(Pi_shock)
+    cap <- pmax(state$capital - loss, 0)
+    list(state = modifyList(state, list(capital = cap, Pi = Pi_shock)),
+         loss = loss)
+}
+
+# #source("EBA_Cont.R")
+# source("EBA_Cont_editWS.R")
+
+#--------------------------------------------------------------#
+# tests by WS 
 # two bank example from Shaanning 2017 (thesis)
 Pi = cbind(c(90, 70))
 cap = c(4, 4.5)
@@ -133,10 +144,10 @@ colnames(Pi) <- c("Asset 1")
 D = 0.4 * (50/0.02) * sqrt(20)
 B = 0.5
 S0 = 1
-alpha = 0.5
+alpha = .5
 lambda_max = 33.3
 lambda_b = 0.95 * lambda_max
-#--------------------------#
+#--------------------------------------------------------------#
 
 banks <- rownames(Pi)
 N <- nrow(Pi)
@@ -145,8 +156,7 @@ state_cont <- state(cap, Pi)
 
 params_default <- params(market_impact_cont(D, B, S0), leverage_cont(lambda_max, lambda_b), alpha)
 
-#-----------------------------------------#
-# tests by WS 
+#--------------------------------------------------------------#
 
 # seems to correspond to epsilon = [0.2, 0.] and Theta from two bank example
 sl <- shock_assets(state_cont, colnames(Pi), c(0.9778, 1.))
@@ -169,90 +179,80 @@ sl_next <- sim_step(sl$state, sl$loss, params_default)
 
 # -> it seems theta is not used, nor is S updated, I don't know how to test the two bank example in this way 
 # without being able to specify theta and epsilon -> all computed values in between, e.g. Gamma, Psi, Pi_next, L
-# are weird numbers, which I cannot interpret
-#-----------------------------------------#
+# are weird numbers, partly with different value ranges, which I do not know how to interpret
+#--------------------------------------------------------------#
 
-shock_banks <- function (state, banks) {
-    N <- nrow(state$Pi)
-
-    loss <- rep(0, N)
-    names(loss) <- rownames(state$Pi)
-    loss[banks] <- state$capital[banks]
-    cap <- state$capital
-    cap[banks] <- 0
-    list(state = modifyList(state, list(capital = cap)),
-         loss = loss)
-}
-
-
-shock_assets <- function (state, assets, reduction_factor) {
-    Pi_shock <- state$Pi
-    Pi_shock[,assets] <- reduction_factor * Pi_shock[,assets]
-    loss <- rowSums(state$Pi) - rowSums(Pi_shock)
-    cap <- pmax(state$capital - loss, 0)
-    list(state = modifyList(state, list(capital = cap, Pi = Pi_shock)),
-         loss = loss)    
-}
-
-
-sim_df <- data_frame(shocked_bank = banks,
-                     loss = 
-                         lapply(banks, function (b) {
-                             sl <- shock_banks(state_cont, b)
-                             simulate(sl$state, sl$loss, params_default) %>%
-                                 ## Compute total loss
-                                 group_by(bank) %>%
-                                 arrange(desc(step)) %>%
-                                 summarize(loss = sum(loss), capital = first(capital))
-                         })) %>%
-    unnest()
-
-sim_df <- data_frame(shocked_asset = colnames(Pi),
-                     loss = 
-                         lapply(shocked_asset, function (a) {
-                             sl <- shock_assets(state_cont, a, 0.95)
-                             simulate(sl$state, sl$loss, params_default)
-                         })) %>%
-    unnest()
-
-## Investigate number of failed banks
-sim_df %>%
-    ## Compute total loss
-    group_by(bank, shocked_asset) %>%
-    arrange(step) %>%
-    summarize(loss = sum(loss), capital = last(capital), assets = last(assets)) %>%
-    ungroup() %>%
-    group_by(shocked_asset) %>%
-    mutate(solvent = capital > 0) %>%
-    summarize(num_failed = sum(1 - solvent)) %>%
-    ggplot(aes(shocked_asset, num_failed)) +
-    geom_point()
-
-sim_df %>%
-    ## Compute total loss
-    group_by(bank, shocked_asset) %>%
-    arrange(step) %>%
-    summarize(loss = sum(loss), capital = last(capital), assets = last(assets)) %>%
-    ungroup() %>%
-    ## group_by(bank) %>%
-    ## summarize(loss = mean(loss)) %>%
-    full_join(data_frame(bank = names(cap), equity = cap)) %>%
-    mutate(insolvent = !(capital > 0), illiquid = !(assets > 0)) %>%
-    ggplot(aes(bank, loss/equity, color=interaction(insolvent, illiquid))) +
-    geom_point() +
-    ## scale_y_log10() +
-    coord_flip() 
-    ## geom_jitter()
-
-## Centrality vs total loss
-Omega <- Pi %*% diag(1e-13, nrow=ncol(Pi)) %*% t(Pi)
-centrality <- eigen(Omega)$vectors[,1]
-sim_df %>%
-    full_join(data_frame(bank = rownames(Omega), centrality = centrality)) %>%
-    group_by(bank, shocked_asset, step > 0) %>%
-    arrange(step) %>%
-    ## filter(step > 0) %>% ## Only fire sale losses
-    summarize(loss = sum(loss), capital = last(capital), assets = last(assets), centrality = unique(centrality)) %>%
-    ungroup() %>%
-    ggplot(aes(centrality, loss, color=`step > 0`)) +
-    geom_point()
+# shock_banks <- function (state, banks) {
+#     N <- nrow(state$Pi)
+# 
+#     loss <- rep(0, N)
+#     names(loss) <- rownames(state$Pi)
+#     loss[banks] <- state$capital[banks]
+#     cap <- state$capital
+#     cap[banks] <- 0
+#     list(state = modifyList(state, list(capital = cap)),
+#          loss = loss)
+# }
+# 
+# 
+# sim_df <- data_frame(shocked_bank = banks,
+#                      loss = 
+#                          lapply(banks, function (b) {
+#                              sl <- shock_banks(state_cont, b)
+#                              simulate(sl$state, sl$loss, params_default) %>%
+#                                  ## Compute total loss
+#                                  group_by(bank) %>%
+#                                  arrange(desc(step)) %>%
+#                                  summarize(loss = sum(loss), capital = first(capital))
+#                          })) %>%
+#     unnest()
+# 
+# sim_df <- data_frame(shocked_asset = colnames(Pi),
+#                      loss = 
+#                          lapply(shocked_asset, function (a) {
+#                              sl <- shock_assets(state_cont, a, 0.95)
+#                              simulate(sl$state, sl$loss, params_default)
+#                          })) %>%
+#     unnest()
+# 
+# ## Investigate number of failed banks
+# sim_df %>%
+#     ## Compute total loss
+#     group_by(bank, shocked_asset) %>%
+#     arrange(step) %>%
+#     summarize(loss = sum(loss), capital = last(capital), assets = last(assets)) %>%
+#     ungroup() %>%
+#     group_by(shocked_asset) %>%
+#     mutate(solvent = capital > 0) %>%
+#     summarize(num_failed = sum(1 - solvent)) %>%
+#     ggplot(aes(shocked_asset, num_failed)) +
+#     geom_point()
+# 
+# sim_df %>%
+#     ## Compute total loss
+#     group_by(bank, shocked_asset) %>%
+#     arrange(step) %>%
+#     summarize(loss = sum(loss), capital = last(capital), assets = last(assets)) %>%
+#     ungroup() %>%
+#     ## group_by(bank) %>%
+#     ## summarize(loss = mean(loss)) %>%
+#     full_join(data_frame(bank = names(cap), equity = cap)) %>%
+#     mutate(insolvent = !(capital > 0), illiquid = !(assets > 0)) %>%
+#     ggplot(aes(bank, loss/equity, color=interaction(insolvent, illiquid))) +
+#     geom_point() +
+#     ## scale_y_log10() +
+#     coord_flip() 
+#     ## geom_jitter()
+# 
+# ## Centrality vs total loss
+# Omega <- Pi %*% diag(1e-13, nrow=ncol(Pi)) %*% t(Pi)
+# centrality <- eigen(Omega)$vectors[,1]
+# sim_df %>%
+#     full_join(data_frame(bank = rownames(Omega), centrality = centrality)) %>%
+#     group_by(bank, shocked_asset, step > 0) %>%
+#     arrange(step) %>%
+#     ## filter(step > 0) %>% ## Only fire sale losses
+#     summarize(loss = sum(loss), capital = last(capital), assets = last(assets), centrality = unique(centrality)) %>%
+#     ungroup() %>%
+#     ggplot(aes(centrality, loss, color=`step > 0`)) +
+#     geom_point()
