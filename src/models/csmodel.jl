@@ -1,10 +1,24 @@
-#TODO: finish documentation
 """
-    CSModel(Π, C, B, S, ADV, σ, c, τ,
-                λ_max; λ_target=0.95*λ_max, α=0.5, insolsell=true)
+    CSModel(Π, C, B, S, ADV, σ, c, τ, λ_max;
+            λ_target=0.95*λ_max, α=0.5, insolsell=true)
 
+Π   : [N x M]
+C   : [N,]
+B   : [M,]
+S   : [M,]
+ADV : [M,]
+σ   : [M,]
 Implements the Cont and Shaaning firesales model from Cont & Shaanning, 2017.
-Given ...
+Given the matrix of security holdings of each bank, `Π`, the vector
+of equity (capital) of each bank, `C`, a vector of the price floor for
+the price impact function, `B`, the initial relative price of each
+security asset, `S`, the vector of average daily volume for each
+security asset, `ADV`, the vector of daily volatility of each security
+asset, `σ`, the coefficient, `c`, as in Cont & Shaanning (2017),
+the liquidation horizon, `τ`, the maximum leverage ratio, `λ_max`, the target
+leverage ratio, `λ_target`, the parameter `α`, modeling the implementation
+shortfall, and `insolsell`, a boolean whether insolvent but still liquid banks
+are allowed to still sell portions of their security holdings.
 """
 struct CSModel <: FinancialModel
 
@@ -20,16 +34,6 @@ struct CSModel <: FinancialModel
     M
     insolsell
 
-    """
-    Π   : [N x M]
-    C   : [N,]
-    B   : [M,]
-    S   : [M,]
-    ADV : [M,]
-    σ   : [M,]
-    insolsell : boolean whether insolvent but still liquid banks are allowed to
-                still sell portions of their liquid holdings
-    """
     function CSModel(Π::AbstractMatrix, C::AbstractVector,
                     B::AbstractVector, S::AbstractVector,
                     ADV::AbstractVector, σ::AbstractVector, c, τ,
@@ -104,9 +108,9 @@ end
 
 Θ   : [N x K]
 ϵ   : [K,]
-Initializes the shocked variable, a, consisting of [I_ϵ, Θ, ϵ], where
-I_ϵ are the shocked illiquid assets given the initial illiquid holdings, Θ, and
-initial percentage loss of illiquid assets, ϵ.
+Initializes the shocked variable, `a`, consisting of [I_ϵ, Θ, ϵ], where
+`I_ϵ` are the shocked illiquid assets given the initial illiquid holdings, `Θ`,
+and initial percentage loss of illiquid assets, `ϵ`.
 """
 function init_a(net::CSModel, Θ::AbstractMatrix, ϵ::AbstractVector)
     @argcheck size(Θ, 1) == size(net.C, 1)
@@ -219,7 +223,7 @@ end
 """
     Πview(net, x)
 
-View the security assets matrix in the state variable x.
+View the security assets matrix in the state variable `x`.
 """
 function Πview(net::CSModel, x::AbstractVector)
     N = numfirms(net)
@@ -230,7 +234,7 @@ end
 """
     Cview(net, x)
 
-View the equity vector in the state variable x.
+View the equity vector in the state variable `x`.
 """
 function Cview(net::CSModel, x::AbstractVector)
     return view(x, 1:numfirms(net))
@@ -239,7 +243,7 @@ end
 """
     Sview(net, x)
 
-View the prices matrix of each asset in the state variable x.
+View the prices matrix of each asset in the state variable `x`.
 """
 function Sview(net::CSModel, x::AbstractVector)
     N = numfirms(net)
@@ -251,7 +255,7 @@ end
     I_ϵview(net, a)
 
 View the total value of shocked illiquid holdings in the shocked assets
-variable, a.
+variable, `a`.
 """
 function I_ϵview(net::CSModel, a)
     return view(a, 1:numfirms(net))
@@ -260,7 +264,7 @@ end
 """
     Θview(net, a)
 
-View the illiquid holdings matrix in the shocked assets variable, a.
+View the illiquid holdings matrix in the shocked assets variable, `a`.
 """
 function Θview(net::CSModel, a)
     N = numfirms(net)
@@ -272,7 +276,7 @@ end
     ϵview(net, a)
 
 View the vector of percentage losses in illiquid holdings in the shocked assets
-variable, a.
+variable, `a`.
 """
 function ϵview(net::CSModel, a)
     N = numfirms(net)
